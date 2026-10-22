@@ -1,0 +1,255 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Offline Snake Arena</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #111; font-family: Arial, sans-serif; }
+        canvas { display: block; background: #151515; }
+        #score-board { position: absolute; top: 20px; right: 20px; color: #fff; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #333; pointer-events: none; }
+        h2 { margin: 0 0 5px 0; font-size: 16px; color: #4CAF50; text-align: right; }
+        .score-entry { font-size: 14px; margin: 3px 0; text-align: right; }
+        #control-hint { position: absolute; bottom: 20px; left: 20px; color: #888; font-size: 13px; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+
+    <div id="score-board">
+        <h2>LEADERBOARD</h2>
+        <div class="score-entry" style="color:#4CAF50; font-weight:bold;">You: <span id="player-score">10</span></div>
+        <div class="score-entry">Snek_Master: 4,820</div>
+        <div class="score-entry">Wormy_McWorm: 3,150</div>
+        <div class="score-entry">Donut_Guy: 2,410</div>
+    </div>
+
+
+    <div id="control-hint">Move mouse to steer | Hold Left-Click to BOOST</div>
+
+
+    <canvas id="gameCanvas"></canvas>
+
+
+    <script>
+        // Completely self-contained game engine. 0 website links.
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+
+        // Game Configuration
+        const WORLD_SIZE = 3000;
+        let score = 10;
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        let isBoosting = false;
+
+
+        // Player Snake Setup
+        const snake = {
+            x: WORLD_SIZE / 2,
+            y: WORLD_SIZE / 2,
+            radius: 12,
+            speed: 3,
+            angle: 0,
+            segments: []
+        };
+        // Initialize starting tail segments
+        for (let i = 0; i < 15; i++) {
+            snake.segments.push({ x: snake.x, y: snake.y });
+        }
+
+
+        // Generate Bot Snakes
+        const bots = [];
+        const colors = ["#ff3333", "#33ff33", "#3333ff", "#ffff33", "#ff33ff", "#33ffff", "#ff9900"];
+        for (let i = 0; i < 12; i++) {
+            let bx = Math.random() * WORLD_SIZE;
+            let by = Math.random() * WORLD_SIZE;
+            let bot = {
+                x: bx, y: by,
+                radius: 10 + Math.random() * 8,
+                speed: 2 + Math.random() * 2,
+                angle: Math.random() * Math.PI * 2,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                segments: [],
+                changeDirTimer: 0
+            };
+            for (let j = 0; j < 15; j++) bot.segments.push({ x: bx, y: by });
+            bots.push(bot);
+        }
+
+
+        // Generate Food Pellets
+        const food = [];
+        for (let i = 0; i < 400; i++) {
+            food.push({
+                x: Math.random() * WORLD_SIZE,
+                y: Math.random() * WORLD_SIZE,
+                radius: 3 + Math.random() * 4,
+                color: colors[Math.floor(Math.random() * colors.length)]
+            });
+        }
+
+
+        // Input Trackers
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        window.addEventListener('mousedown', (e) => { if(e.button === 0) isBoosting = true; });
+        window.addEventListener('mouseup', (e) => { if(e.button === 0) isBoosting = false; });
+
+
+        // Game Loop Logic
+        function update() {
+            // 1. Calculate player movement angle based on cursor position
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const dy = mouseY - centerY;
+            const dx = mouseX - centerX;
+            snake.angle = Math.atan2(dy, dx);
+
+
+            // Boost logic
+            if (isBoosting && score > 5) {
+                snake.speed = 6;
+                if (Math.random() < 0.15) {
+                    score--;
+                    food.push({ x: snake.segments[snake.segments.length-1].x, y: snake.segments[snake.segments.length-1].y, radius: 4, color: '#00ffcc' });
+                }
+            } else {
+                snake.speed = 3;
+            }
+
+
+            // Move Player Head
+            snake.x += Math.cos(snake.angle) * snake.speed;
+            snake.y += Math.sin(snake.angle) * snake.speed;
+
+
+            // Constrain player to world bounds
+            snake.x = Math.max(0, Math.min(WORLD_SIZE, snake.x));
+            snake.y = Math.max(0, Math.min(WORLD_SIZE, snake.y));
+
+
+            // Update Player Tail Segments
+            snake.segments.unshift({ x: snake.x, y: snake.y });
+            if (snake.segments.length > score) {
+                snake.segments.pop();
+            }
+
+
+            // Move Bot Snakes
+            bots.forEach(bot => {
+                bot.changeDirTimer--;
+                if (bot.changeDirTimer <= 0) {
+                    bot.angle = Math.random() * Math.PI * 2;
+                    bot.changeDirTimer = 60 + Math.floor(Math.random() * 120);
+                }
+                bot.x += Math.cos(bot.angle) * bot.speed;
+                bot.y += Math.sin(bot.angle) * bot.speed;
+                bot.x = Math.max(0, Math.min(WORLD_SIZE, bot.x));
+                bot.y = Math.max(0, Math.min(WORLD_SIZE, bot.y));
+
+
+                bot.segments.unshift({ x: bot.x, y: bot.y });
+                if (bot.segments.length > 20) bot.segments.pop();
+            });
+
+
+            // Food Collision Check
+            for (let i = food.length - 1; i >= 0; i--) {
+                let dist = Math.hypot(snake.x - food[i].x, snake.y - food[i].y);
+                if (dist < snake.radius + food[i].radius) {
+                    score += Math.floor(food[i].radius / 2);
+                    food.splice(i, 1);
+                    // Respawn a new pellet somewhere else
+                    food.push({ x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE, radius: 3 + Math.random() * 4, color: colors[Math.floor(Math.random() * colors.length)] });
+                }
+            }
+
+
+            document.getElementById("player-score").innerText = score;
+        }
+
+
+        // Draw Everything onto the Screen Canvas
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
+            // Camera offsets centered perfectly on the player's head coordinate
+            const camX = canvas.width / 2 - snake.x;
+            const camY = canvas.height / 2 - snake.y;
+
+
+            // Draw World Boundary Lines
+            ctx.strokeStyle = "#444";
+            ctx.lineWidth = 5;
+            ctx.strokeRect(camX, camY, WORLD_SIZE, WORLD_SIZE);
+
+
+            // Draw Decorative Map Grid background
+            ctx.strokeStyle = "#222";
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            for (let x = 0; x < WORLD_SIZE; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x + camX, camY); ctx.lineTo(x + camX, WORLD_SIZE + camY); ctx.stroke();
+            }
+            for (let y = 0; y < WORLD_SIZE; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(camX, y + camY); ctx.lineTo(WORLD_SIZE + camX, y + camY); ctx.stroke();
+            }
+
+
+            // Draw Food Pellets
+            food.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x + camX, p.y + camY, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+
+            // Draw Bot Snakes
+            bots.forEach(bot => {
+                ctx.fillStyle = bot.color;
+                for (let i = bot.segments.length - 1; i >= 0; i--) {
+                    ctx.beginPath();
+                    ctx.arc(bot.segments[i].x + camX, bot.segments[i].y + camY, bot.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+
+            // Draw Player Snake
+            ctx.fillStyle = "#00ffcc"; // Glowing turquoise head
+            for (let i = snake.segments.length - 1; i > 0; i--) {
+                ctx.beginPath();
+                ctx.arc(snake.segments[i].x + camX, snake.segments[i].y + camY, snake.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Draw Main Head Face Circle
+            ctx.fillStyle = "#00b39f";
+            ctx.beginPath();
+            ctx.arc(snake.x + camX, snake.y + camY, snake.radius + 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+
+        // Loop Runner
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
