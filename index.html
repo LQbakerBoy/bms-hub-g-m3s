@@ -89,18 +89,18 @@
         canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         const count = Math.min(105, Math.max(45, Math.floor(width * height / 12000)));
-        stars = Array.from({length:count}, () => ({x:Math.random()*width,y:Math.random()*height,vx:(Math.random()-.5)*.22,vy:(Math.random()-.5)*.22,r:Math.random()*1.5+.5,a:Math.random()*.55+.25,phase:Math.random()*6.28}));
+        stars = Array.from({length:count}, () => ({x:Math.random()*width,y:Math.random()*height,vx:(Math.random()-.5)*.48,vy:(Math.random()-.5)*.48,r:Math.random()*1.5+.5,a:Math.random()*.55+.25,phase:Math.random()*6.28}));
       }
       function draw(t) {
         ctx.clearRect(0,0,width,height);
         for (let i=0;i<stars.length;i++) {
           const s=stars[i];
-          if (!reducedMotion) { s.x+=s.vx; s.y+=s.vy; s.phase+=.012; if(s.x<0)s.x=width;if(s.x>width)s.x=0;if(s.y<0)s.y=height;if(s.y>height)s.y=0; }
+          if (!reducedMotion) { s.x+=s.vx; s.y+=s.vy; s.phase+=.018; if(s.x<0)s.x=width;if(s.x>width)s.x=0;if(s.y<0)s.y=height;if(s.y>height)s.y=0; }
           const alpha=s.a*(reducedMotion?1:(.7+.3*Math.sin(s.phase)));
           ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=`rgba(${i%3===0?'190,165,255':i%3===1?'120,180,255':'225,230,255'},${alpha})`; ctx.fill();
           for(let j=i+1;j<stars.length;j++) {
             const q=stars[j], dx=s.x-q.x, dy=s.y-q.y, dist=Math.hypot(dx,dy);
-            if(dist<125) { ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(q.x,q.y); ctx.strokeStyle=`rgba(255,145,70,${(1-dist/125)*.23})`; ctx.lineWidth=.7; ctx.stroke(); }
+            if(dist<150) { ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(q.x,q.y); ctx.strokeStyle=`rgba(255,145,70,${(1-dist/150)*.34})`; ctx.lineWidth=.7; ctx.stroke(); }
           }
         }
         if (!reducedMotion) frame = requestAnimationFrame(draw);
